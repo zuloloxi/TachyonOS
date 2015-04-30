@@ -695,7 +695,7 @@ os_set_time_fmt:
 	je .store
 	mov al, 0FFh
 .store:
-	mov [fmt_12_24], al
+	mov [FS:CFG_24H_TIME], al
 	popa
 	ret
 
@@ -726,7 +726,7 @@ os_get_time_string:
 	mov al,	ch			; Hour
 	shr al, 4			; Tens digit - move higher BCD number into lower bits
 	and ch, 0Fh			; Ones digit
-	test byte [fmt_12_24], 0FFh
+	test byte [FS:CFG_24H_TIME], 0FFh
 	jz .twelve_hr
 
 	call .add_digit			; BCD already in 24-hour format
@@ -780,7 +780,7 @@ os_get_time_string:
 	stosb
 
 	mov si, .hours_string		; Assume 24-hr format
-	test byte [fmt_12_24], 0FFh
+	test byte [FS:CFG_24H_TIME], 0FFh
 	jnz .copy
 
 	mov si, .pm_string		; Assume PM
@@ -830,7 +830,7 @@ os_set_date_fmt:
 .fmt_test:
 	cmp al, 3			; Only allow 0, 1 and 2
 	jae .leave
-	mov [fmt_date], ax
+	mov [FS:CFG_DATE_FMT], ax
 
 .leave:
 	popa
@@ -845,7 +845,7 @@ os_get_date_string:
 	pusha
 
 	mov di, bx			; Store string location for now
-	mov bx, [fmt_date]		; BL = format code
+	mov bx, [FS:CFG_DATE_FMT]	; BL = format code
 	and bx, 7F03h			; BH = separator, 0 = use month names
 
 	clc				; For buggy BIOSes
@@ -875,7 +875,7 @@ os_get_date_string:
 
 	mov ah, dl			; Always 2-digit day
 	call .add_2digits
-	jmp short .done
+	jmp .done
 
 .try_fmt1:
 	cmp bl, 1			; D/M/Y format (military and Europe)

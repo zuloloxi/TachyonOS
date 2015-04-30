@@ -148,7 +148,7 @@ Build #3 (3 March 2013)
 	os_memory_reset
 	os_memory_read
 	os_memory_write
-* Rewrote os_wait_for_key to signficantly reduce the CPU load while waiting for key
+* Rewrote os_wait_for_key to significantly reduce the CPU load while waiting for key
 	
 -----------------------
 Build #2 (2 March 2013)

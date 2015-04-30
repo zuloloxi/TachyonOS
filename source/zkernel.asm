@@ -48,6 +48,18 @@ jmp os_square_root				; 008Ah
 jmp os_check_for_extkey				; 008Dh
 jmp os_draw_circle				; 0090h
 jmp os_add_custom_icons				; 0093h
+jmp os_boot_start				; 0096h
+jmp os_load_file				; 0099h
+jmp os_get_file_list				; 009Ch
+jmp os_write_file				; 009Fh
+jmp os_file_exists				; 00A2h
+jmp os_create_file				; 00A5h
+jmp os_remove_file				; 00A8h
+jmp os_rename_file				; 00ABh
+jmp os_get_file_size				; 00AEh
+jmp os_file_selector				; 00B1h
+jmp os_list_dialog				; 00B4h
+jmp os_pause					; 00B7h
 
 os_return:
 	pushf
@@ -80,6 +92,18 @@ flags_tmp			dw 0
 internal_call			dw 0		; cancels os_return
 return_ax_tmp			dw 0
 
+%INCLUDE 'constants/api.asm'
+%INCLUDE 'constants/buffer.asm'
+%INCLUDE 'constants/bootmsg.asm'
+%INCLUDE 'constants/diskbuf.asm'
+%INCLUDE 'constants/colours.asm'
+%INCLUDE 'constants/config.asm'
+%INCLUDE 'constants/defaults.asm'
+%INCLUDE 'constants/osdata.asm'
+
+%INCLUDE 'features/debug.asm'
+
+%INCLUDE 'features/zkernel/boot.asm'
 %INCLUDE 'features/zkernel/graphics.asm' 
 %INCLUDE 'features/zkernel/memory.asm'
 %INCLUDE 'features/zkernel/sound.asm'
@@ -88,5 +112,9 @@ return_ax_tmp			dw 0
 %INCLUDE 'features/zkernel/keyboard.asm'
 %INCLUDE 'features/zkernel/math.asm'
 %INCLUDE 'features/zkernel/ports.asm'
+%INCLUDE 'features/zkernel/disk.asm'
+%INCLUDE 'features/zkernel/misc.asm'
+%INCLUDE 'features/string.asm'
+%INCLUDE 'features/screen.asm'
 %INCLUDE 'constants/menuicons.asm'
 

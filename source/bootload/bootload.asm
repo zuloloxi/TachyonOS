@@ -1,6 +1,9 @@
 ; ==================================================================
-; The Mike Operating System bootloader
-; Copyright (C) 2006 - 2012 MikeOS Developers -- see doc/LICENSE.TXT
+; The Tachyon Operating System bootloader
+; Copyright (C) 2013 TachyonOS Developers -- see doc/LICENSE.TXT
+;
+; Based on the Mike Operating System bootloader.
+; Copyright (C) 2006 - 2012 MikeOS Developers -- see doc/MikeOS/LICENSE.TXT
 ;
 ; Based on a free boot loader by E Dehling. It scans the FAT12
 ; floppy for KERNEL.BIN (the MikeOS kernel), loads it and executes it.
@@ -21,7 +24,7 @@
 ; Note: some of these values are hard-coded in the source!
 ; Values are those used by IBM for 1.44 MB, 3.5" diskette
 
-OEMLabel		db "MIKEBOOT"	; Disk label
+OEMLabel		db "FTLBOOT "	; Disk label
 BytesPerSector		dw 512		; Bytes per sector
 SectorsPerCluster	db 1		; Sectors per cluster
 ReservedForBoot		dw 1		; Reserved sectors for boot record
@@ -37,8 +40,8 @@ HiddenSectors		dd 0		; Number of hidden sectors
 LargeSectors		dd 0		; Number of LBA sectors
 DriveNo			dw 0		; Drive No: 0
 Signature		db 41		; Drive signature: 41 for floppy
-VolumeID		dd 00000000h	; Volume ID: any number
-VolumeLabel		db "MIKEOS     "; Volume Label: any 11 chars
+VolumeID		dd __POSIX_TIME__	; Volume ID
+VolumeLabel		db "TACHYONOS  "; Volume Label: any 11 chars
 FileSystem		db "FAT12   "	; File system type: don't change!
 
 
@@ -178,7 +181,7 @@ fatal_disk_error:
 read_fat_ok:
 	popa
 
-	mov ax, 2000h			; Segment where we'll load the kernel
+	mov ax, 1000h			; Segment where we'll load the kernel
 	mov es, ax
 	mov bx, 0
 
@@ -200,7 +203,7 @@ load_file_sector:
 
 	call l2hts			; Make appropriate params for int 13h
 
-	mov ax, 2000h			; Set buffer past what we've already read
+	mov ax, 1000h			; Set buffer past what we've already read
 	mov es, ax
 	mov bx, word [pointer]
 
@@ -260,7 +263,7 @@ end:					; We've got the file to load!
 	pop ax				; Clean up the stack (AX was pushed earlier)
 	mov dl, byte [bootdev]		; Provide kernel with boot device info
 
-	jmp 2000h:0000h			; Jump to entry point of loaded kernel!
+	jmp 1000h:0096h			; Jump to entry point of loaded kernel!
 
 
 ; ------------------------------------------------------------------
@@ -333,10 +336,10 @@ l2hts:			; Calculate head, track and sector settings for int 13h
 ; ------------------------------------------------------------------
 ; STRINGS AND VARIABLES
 
-	kern_filename	db "KERNEL  BIN"	; MikeOS kernel filename
+	kern_filename	db "ZKERNEL SYS"	; TachyonOS kernel filename
 
 	disk_error	db "Floppy error! Press any key...", 0
-	file_not_found	db "KERNEL.BIN not found!", 0
+	file_not_found	db "ZKERNEL.SYS not found!", 0
 
 	bootdev		db 0 	; Boot device number
 	cluster		dw 0 	; Cluster of the file we want to load

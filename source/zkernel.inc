@@ -1,5 +1,15 @@
 ; Pointers from extended kernel to regular kernel.
 
+; Disk API calls
+ptr_load_file			equ	0099h
+ptr_get_file_list		equ	009Ch
+ptr_write_file			equ	009Fh
+ptr_file_exists			equ	00A2h
+ptr_create_file			equ	00A5h
+ptr_remove_file			equ	00A8h
+ptr_rename_file			equ	00ABh
+ptr_get_file_size		equ	00AEh
+
 ; Graphics API calls
 ptr_text_mode			equ	0000h
 ptr_graphics_mode		equ	0003h
@@ -64,7 +74,13 @@ ptr_serial_port_enable		equ	0081h
 ptr_send_via_serial		equ	0084h
 ptr_get_via_serial		equ	0087h
 
+; Screen API calls
+ptr_file_selector		equ	00B1h
+ptr_list_dialog			equ	00B4h
+
+; Other API calls
 ptr_add_custom_icons		equ	0093h
+ptr_pause			equ	00B7h
 
 ; Data
 
@@ -123,4 +139,14 @@ os_square_root			equ	01BBh
 os_check_for_extkey		equ	01C0h
 os_draw_circle			equ	01C5h
 os_add_custom_icons		equ	01CAh
-
+os_load_file			equ	01CFh
+os_get_file_list		equ	01D4h
+os_write_file			equ	01D9h
+os_file_exists			equ	01DEh
+os_create_file			equ	01E3h
+os_remove_file			equ	01E8h
+os_rename_file			equ	01EDh
+os_get_file_size		equ	01F2h
+os_file_selector		equ	01F7h
+os_list_dialog			equ	01FCh
+os_pause			equ	0201h

@@ -19,7 +19,7 @@
 %DEFINE UNKNOWN 7
 %DEFINE LABEL 8
 
-
+dw '***BASINT***'
 ; ------------------------------------------------------------------
 ; The BASIC interpreter execution starts here -- a parameter string
 ; is passed in SI and copied into the first string, unless SI = 0
@@ -825,7 +825,7 @@ assign:
 	mov ax, 0
 	mov al, [.tmp]
 	
-	mov bx, DIALOG_BOX_OUTER_COLOUR
+	mov bx, [FS:CFG_DLG_OUTER_COLOUR]
 	call set_var
 	
 	jmp mainloop
@@ -5821,3 +5821,4 @@ vars_loc:
 	
 ; ------------------------------------------------------------------
 
+dw '***BASEND***'

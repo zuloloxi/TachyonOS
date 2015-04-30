@@ -12,17 +12,19 @@
 
 
 	BITS 16
-
-	%DEFINE OS_VERSION_STRING 'OS Build #9'	; Version string for printing
-	%DEFINE OS_VERSION_NUMBER 9			; Version number for programs to test
+	
+	%INCLUDE 'constants/bootmsg.asm'
+	%INCLUDE 'constants/buffer.asm'
+	%INCLUDE 'constants/config.asm'
+	%INCLUDE 'constants/colours.asm'
+	%INCLUDE 'constants/defaults.asm'
+	%INCLUDE 'constants/osdata.asm'
+	
+	
+	
+%INCLUDE 'features/debug.asm'
 
 	disk_buffer	equ	24576
-	
-	%DEFINE DIALOG_BOX_OUTER_COLOUR		00101111b
-	%DEFINE DIALOG_BOX_INNER_COLOUR		11110000b
-	%DEFINE DIALOG_BOX_SELECT_COLOUR	00110000b
-	%DEFINE TITLEBAR_COLOUR			00101111b
-
 
 ; ------------------------------------------------------------------
 ; OS CALL VECTORS -- Static locations for system call vectors
@@ -160,94 +162,86 @@ os_call_vectors:
 	jmp 0x1000:ptr_check_for_extkey		; 01C0h
 	jmp 0x1000:ptr_draw_circle		; 01C5h
 	jmp 0x1000:ptr_add_custom_icons		; 01CAh
+	jmp 0x1000:ptr_load_file		; 01CFh
+	jmp 0x1000:ptr_get_file_list		; 01D4h
+	jmp 0x1000:ptr_write_file		; 01D9h
+	jmp 0x1000:ptr_file_exists		; 01DEh
+	jmp 0x1000:ptr_create_file		; 01E3h
+	jmp 0x1000:ptr_remove_file		; 01E8h
+	jmp 0x1000:ptr_rename_file		; 01EDh
+	jmp 0x1000:ptr_get_file_size		; 01F2h
+	jmp 0x1000:ptr_file_selector		; 01F7h
+	jmp 0x1000:ptr_list_dialog		; 01FCh
+	jmp 0x1000:ptr_pause			; 0201h
 
 
 ; ------------------------------------------------------------------
 ; START OF MAIN KERNEL CODE
 
 os_main:
-	cli				; Clear interrupts
+
+
+	; Install the mouse driver
+	BOOTMSG 'Installing Mouse Driver...'
+	call os_mouse_setup
+	BOOTOK
+	
+	; Define the range of cursor movement
+	BOOTMSG 'Setting Mouse Parameters...'
 	mov ax, 0
-	mov ss, ax			; Set stack segment and pointer
-	mov sp, 0FFFFh
-	sti				; Restore interrupts
-
-	cld				; The default direction for string operations
-					; will be 'up' - incrementing address in RAM
-
-	mov ax, 2000h			; Set all segments to match where kernel is loaded
-	mov ds, ax			; After this, we don't need to bother with
-	mov es, ax			; segments ever again, as MikeOS and its programs
-	mov fs, ax			; live entirely in 64K
+	mov bx, 0
+	mov cx, [CFG_SCREEN_HEIGHT]
+	mov dx, [CFG_SCREEN_WIDTH]
+	dec cx
+	dec dx
+	call os_mouse_range
 	
-	mov ax, 1000h
-	mov gs, ax
-
-	cmp dl, 0
-	je no_change
-	mov [bootdev], dl		; Save boot device number
-	push es
-	mov ah, 8			; Get drive parameters
-	int 13h
-	pop es
-	and cx, 3Fh			; Maximum sector number
-	mov [SecsPerTrack], cx		; Sector numbers start at 1
-	movzx dx, dh			; Maximum head number
-	add dx, 1			; Head numbers start at 0 - add 1 for total
-	mov [Sides], dx
-
-no_change:
-	mov ax, 1003h			; Set text output with certain attributes
-	mov bx, 0			; to be bright, and not blinking
-	int 10h
-	
-	call load_kernel_extentions	; Load extra functionality
-	
-	call os_seed_random		; Seed random number generator
-	
-	mov ax, menu_file_name		; Load menu file for UI Shell
-	mov cx, 32768
-	call os_load_file
-	jc missing_important_file
-	
-	mov dx, 2			; Allocate 1024 bytes (2*512) to the file
-	call os_memory_allocate
-	
-	mov [menu_data_handle], bh	; Remember the memory handle
-		
-	mov si, 32768			; Write the menu file to the memory handle
-	call os_memory_write
+	mov dh, 3
+	mov dl, 2
+	call os_mouse_scale
+	BOOTOK
 	
 	; Let's see if there's a file called AUTORUN.BIN and execute
 	; it if so, before going to the program launcher menu
 	
+	BOOTMSG 'Checking for autorun binary...'
 	mov ax, autorun_bin_file_name
 	call os_file_exists
 	jc no_autorun_bin		; Skip next three lines if AUTORUN.BIN doesn't exist
+	BOOTOK
 
 	mov cx, 32768			; Otherwise load the program into RAM...
 	call os_load_file
 	jmp execute_bin_program		; ...and move on to the executing part
+	
+	jmp start_shell
 
 
 	; Or perhaps there's an AUTORUN.BAS file?
 
 no_autorun_bin:
+	BOOTFAIL
+	BOOTMSG 'Checking for autorun BASIC program...'
 	mov ax, autorun_bas_file_name
 	call os_file_exists
-	jc load_menu			; Skip next section if AUTORUN.BAS doesn't exist
+	jc no_autorun_bas		; Skip next section if AUTORUN.BAS doesn't exist
+	
+	BOOTOK
 	
 	mov cx, 32768			; Otherwise load the program into RAM
 	call os_load_file
-	call os_clear_screen
+
 	mov ax, 32768
 	call os_run_basic		; Run the kernel's BASIC interpreter
 
-	jmp load_menu			; And start the UI shell when BASIC ends
+	jmp start_shell			; And start the UI shell when BASIC ends
+	
+no_autorun_bas:
+	BOOTFAIL
+	jmp start_shell
 
 	
 load_kernel_extentions:	
-	call check_for_background
 
 	mov ax, zkernel_filename
 	mov cx, 32768
@@ -309,39 +303,40 @@ missing_important_file:
 
 	; And now data for the above code...
 
-	kern_file_name		db 'KERNEL.BIN', 0
-	zkernel_filename	db 'ZKERNEL.SYS', 0
-	autorun_bin_file_name	db 'AUTORUN.BIN', 0
-	autorun_bas_file_name	db 'AUTORUN.BAS', 0
-	background_file_name	db 'BACKGRND.AAP', 0
-	menu_file_name		db 'MENU.TXT', 0
+	kern_file_name		db OS_KERNEL_FILENAME, 0
+	zkernel_filename	db OS_KERNEL_EXT_FILENAME, 0
+	autorun_bin_file_name	db OS_AUTORUN_BIN_FILE, 0
+	autorun_bas_file_name	db OS_AUTORUN_BAS_FILE, 0
+	background_file_name	db OS_BACKGROUND_FILE, 0
+	menu_file_name		db OS_MENU_DATA_FILE, 0
 
-	missing_file_string	db 'An important operating system file is missing: '
-	missing_file_name	times 13 db 0
+	missing_file_string	db OS_MISSING_FILE_MSG, 0
+	missing_file_name	__FILENAME_BUFFER__
 	
-; ------------------------------------------------------------------
-; SYSTEM VARIABLES -- Settings for programs and system calls
-
-
-	; Time and date formatting
-
-	fmt_12_24	db 0		; Non-zero = 24-hr format
-
-	fmt_date	db 0, '/'	; 0, 1, 2 = M/D/Y, D/M/Y or Y/M/D
-					; Bit 7 = use name for months
-					; If bit 7 = 0, second byte = separator character
-
 
 ; ------------------------------------------------------------------
 ; FEATURES -- Code to pull into the kernel
-
 	%INCLUDE "features/cli.asm"
- 	%INCLUDE "features/disk.asm"
 	%INCLUDE "features/misc.asm"
 	%INCLUDE "features/screen.asm"
 	%INCLUDE "features/shell.asm"
 	%INCLUDE "features/string.asm"
 	%INCLUDE "features/basic.asm"
+	
+	BOOT_DATA_BLOCK
+	
+	; Configuration section
+	times CROSSOVER_BUFFER-($-$$) db 0
+	times CONFIG_START-($-$$) db 0
+	dw DEF_DLG_OUTER_COLOUR
+	dw DEF_DLG_INNER_COLOUR
+	dw DEF_DLG_SELECT_COLOUR
+	dw DEF_TITLEBAR_COLOUR
+	dw DEF_24H_TIME
+	dw DEF_DATE_FMT
+	dw DEF_DATE_SEPARATOR
+	dw DEF_SCREEN_HEIGHT
+	dw DEF_SCREEN_WIDTH
 
 
 ; ==================================================================

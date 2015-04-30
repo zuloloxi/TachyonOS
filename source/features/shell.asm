@@ -1,3 +1,32 @@
+start_shell:
+	BOOTMSG 'Checking for custom background'
+	call check_for_background
+	BOOTOK
+	
+	BOOTMSG 'Loading custom icons...'
+	call os_add_custom_icons
+	BOOTOK
+
+	BOOTMSG 'Loading menu data file...'
+	mov ax, menu_file_name		; Load menu file for UI Shell
+	mov cx, 32768
+	call os_load_file
+	BOOTFATAL_IFCARRY 'Error loading file'
+	
+	mov dx, 2			; Allocate 1024 bytes (2*512) to the file
+	call os_memory_allocate
+	BOOTFATAL_IFCARRY 'Could not allocate memory'
+	
+	mov [menu_data_handle], bh	; Remember the memory handle
+		
+	mov si, 32768			; Write the menu file to the memory handle
+	call os_memory_write
+	BOOTOK
+	
+	BOOTMSG 'Entering TOSMUI...'
+	mov ax, BOOT_DELAY		; Delay to show information
+	call os_pause
+
 load_menu:
 	call get_menu_data		; Collect menu information
 	call draw_background		; Draw menu bar and background picture
@@ -106,7 +135,7 @@ app_selector:
 	mov word [file_tmp], ax		; Save the filename for now
 
 file_options:
-	mov bl, DIALOG_BOX_OUTER_COLOUR
+	mov bl, [FS:CFG_DLG_OUTER_COLOUR]
 	mov dl, 20			; Start X position
 	mov dh, 23			; Start Y position
 	mov si, 40			; Width
@@ -422,8 +451,8 @@ general_error:
 	jmp app_selector			; Return to OS
 
 draw_background:
-	mov ax, os_init_msg		; Set up the welcome screen
-	mov bx, os_version_msg
+	mov ax, shell_msg.top		; Set up the welcome screen
+	mov bx, shell_msg.bottom
 	mov cx, 10011111b		; Colour: white text on light blue
 	call os_draw_background
 
@@ -680,8 +709,9 @@ shell_data:
 	name_tmp		times 15 db 0
 	para_tmp		times 128 db 0
 
-	os_init_msg		db 'Welcome to the Tachyon Operating System', 0
-	os_version_msg		db 'Version ', OS_VERSION_STRING, 0
+	shell_msg:
+		.top 		db OS_TUI_TOP, 0
+		.bottom 	db OS_TUI_BOTTOM, 0
 
 	
 	fileoptions_list	db 'Execute the app,Delete the file,Rename the file,Copy the file,Show file size,,Restart the computer,Shutdown the computer', 0
@@ -707,8 +737,8 @@ shell_data:
 	bin_ext			db 'BIN'
 	bas_ext			db 'BAS'
 
-	kerndlg_string_1	db 'Cannot load and execute MikeOS kernel!', 0
-	kerndlg_string_2	db 'KERNEL.BIN is the core of MikeOS, and', 0
+	kerndlg_string_1	db 'Cannot load and execute ', OS_NAME_SHORT,  ' kernel!', 0
+	kerndlg_string_2	db OS_KERNEL_FILENAME, ' is the kernel file of ', OS_NAME_SHORT, ' , and', 0
 	kerndlg_string_3	db 'is not a normal program.', 0
 
 	ext_string_1		db 'Invalid filename extension! You can', 0
