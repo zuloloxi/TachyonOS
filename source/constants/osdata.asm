@@ -2,8 +2,8 @@
 ; Version numbers and names
 %DEFINE OS_NAME_SHORT			'TachyonOS'
 %DEFINE OS_NAME_LONG			'Tachyon Operating System'
-%DEFINE OS_VERSION_NUMBER		10
-%DEFINE OS_VERSION_STRING		'OS Build #10'
+%DEFINE OS_VERSION_NUMBER		11
+%DEFINE OS_VERSION_STRING		'OS Build #11'
 
 ; Filenames to search for
 %DEFINE OS_KERNEL_FILENAME		'KERNEL.BIN'
