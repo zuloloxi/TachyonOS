@@ -4,6 +4,16 @@ Copyright (C) 2013 TachyonOS Developers, uses GPL licence see doc/LICENCE.TXT
 Copyright (C) 2006 - 2012 MikeOS Developers -- see doc/MikeOS/LICENSE.TXT
 =============================================================================
 
+------------------------
+Build #11 (30 July 2015)
+------------------------
+* Fixed many bugs in disk API.
+* Updated Yotta to 1.03x10^25
+* Updated Memory Manipulator to 3.2.0
+* Updated ASCII Artist to 3.1.0
+* Updated MB++ Library to 4.1.0
+* Updated Calculator to 2.1.0
+
 ---------------------------
 Build #9 (01 Feburary 2015)
 ---------------------------
