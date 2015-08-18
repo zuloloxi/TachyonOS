@@ -58,7 +58,6 @@ os_get_file_list:
 	API_END
 	
 	.comma_string				db ',', 0
-	.output_segment				dw 0
 ; ------------------------------------------------------------------
 
 
@@ -111,11 +110,11 @@ os_load_file:
 	
 	mov bx, [.filesize]
 	clc
-	API_RETURN bx				; Return the file size
+	API_RETURN_NC bx			; Return the file size
 	
 .failed:
 	stc
-	API_END
+	API_END_SC
 	
 .filename					__FILENAME_BUFFER__
 .filesize					dw 0
@@ -127,7 +126,7 @@ os_load_file:
 ; ------------------------------------------------------------------
 ; Call: os_write_file
 ; Description: Writes a file to the disk
-; IN: AX = filename pointer, BX = file size, ES:CX = file location
+; IN: AX = filename pointer, ES:BX = file location, CX = file size
 ; OUT: CF = set if failed, otherwise clear
 
 os_write_file:
@@ -135,14 +134,13 @@ os_write_file:
 	mov dx, es
 	API_SEGMENTS
 	
-	mov [.file_size], bx
-	mov [.file_loc], cx
+	mov [.file_loc], bx
+	mov [.file_size], cx
 	mov [.file_segment], dx
 	
 	mov si, ax
 	mov di, .file_name
 	call func_copy_string_f2g
-	
 	call func_examine_disk			; Read the disk information
 	jc .failed
 	call func_read_fat
@@ -159,7 +157,8 @@ os_write_file:
 	jmp .find_file
 	
 .empty_file:
-	mov word [.clusters], 0			; If there's an empty file just say zero clusters, the disk subsystem will figure out the rest
+	; This will prevent a cluster chain being created later
+	mov word [.clusters], 0
 
 .find_file:	
 	call func_examine_curr_dir		; Read the current directory and scan for the file
@@ -187,6 +186,7 @@ os_write_file:
 	
 .write_clusters:
 	mov ax, [di]				; AX = sector number, DX:SI = cluster data, DI = cluster list pointer
+	xchg bx, bx
 	call func_write_cluster
 	jc .failed				; Bailout if a write fails
 	
@@ -201,11 +201,10 @@ os_write_file:
 	jc .failed
 	
 	clc
-	API_END
-	
+	API_END_NC
+
 .failed:
-	stc
-	API_END
+	API_END_SC
 	
 	.file_name				__FILENAME_BUFFER__
 	.file_size				dw 0
@@ -387,13 +386,53 @@ os_get_file_size:
 	call func_find_file			; Find the file entry, this will return 
 	jc .failed
 	
-	API_RETURN bx
+	mov bx, ax
+	API_RETURN_NC bx
 	
 .failed:
-	API_END
+	API_END_SC
 	
 	.filename				__FILENAME_BUFFER__
 ; ------------------------------------------------------------------
+
+
+
+; ------------------------------------------------------------------
+; Call: os_enter_directory
+; Description: Enter a subdirectory of the current directory.
+; Input: AX = directory name
+; Output: CF = set if error, otherwise clear
+
+os_enter_directory:
+	API_START
+	API_SEGMENTS 
+
+	mov si, ax
+	mov di, .filename
+	call func_copy_string_f2g
+
+	call func_examine_disk
+	jc .failed
+	call func_examine_curr_dir
+	jc .failed
+
+	call func_find_directory
+	jc .failed
+
+	call func_enter_subdirectory
+
+	API_END_NC
+
+.failed:
+	API_END_SC
+
+.filename 					__FILENAME_BUFFER__
+
+
+; ------------------------------------------------------------------
+
+
+
 ; ==================================================================
 
 
@@ -687,6 +726,7 @@ func_set_fat_entry:
 	
 .finish:
 	popa
+	pop es
 	ret
 ; ------------------------------------------------------------------
 
@@ -928,7 +968,7 @@ func_read_dir_entry:
 	push di
 	push cx
 	
-	inc byte [internal_call]
+	inc word [gs:internal_call]
 	
 	mov dx, DISK_SEGMENT
 	mov es, dx
@@ -999,7 +1039,7 @@ func_read_dir_entry:
 	
 	mov cl, dl
 	
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	pop di
 	pop dx
 	pop es
@@ -1007,7 +1047,7 @@ func_read_dir_entry:
 	ret
 	
 .past_end:
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	pop cx
 	pop di				; If the there are no entries to read, set carry and exit
 	pop dx
@@ -1306,6 +1346,7 @@ func_create_fat_chain:
 	
 	mov dx, 2				; Clusters start a two
 	mov cx, [diskinfo.fat_entries]		; Check for all valid FAT entries
+	sub cx, 2
 
 .find_free_clusters:
 	mov ax, dx				; Loop through the FAT and find free entries to allocate out to the chain
@@ -1338,8 +1379,9 @@ func_create_fat_chain:
 	
 	jmp .disk_full				; If all clusters have been checked and not enough have been found then the disk is full, report failure
 	
-	
 .start_of_chain:
+	mov [.first_cluster], dx
+
 	dec word [.chain_length]		; If the chain length is one then just write an end of cluster to the first free cluster
 	cmp word [.chain_length], 0
 	je .finish_chain
@@ -1361,6 +1403,8 @@ func_create_fat_chain:
 	call func_set_fat_entry
 	
 	popa
+	mov ax, [.first_cluster]
+.empty_chain:
 	clc
 	ret
 	
@@ -1368,13 +1412,10 @@ func_create_fat_chain:
 	popa					; If there are not enough free clusters on the disk then report failure
 	stc
 	ret
-	
-.empty_chain:
-	clc
-	ret					; If zero length specified just report success and return zero
 
 .previous_cluster				dw 0
 .chain_length					dw 0
+.first_cluster					dw 0
 ; ------------------------------------------------------------------
 
 
@@ -1408,7 +1449,7 @@ func_read_fat_chain:
 	cmp ax, 0x001			; Is it the next entry address or the end of the chain?
 	jle .end_of_chain
 	
-	cmp ax, 0xFF6
+	cmp ax, 0xFF7
 	jge .end_of_chain
 	
 	mov [si], ax			; If there's more, write the entry to the list
@@ -1535,7 +1576,7 @@ func_examine_disk:
 	push es
 	pusha
 	
-	inc byte [gs:internal_call]
+	inc word [gs:internal_call]
 	
 	call func_disk_reset
 	jc .failed
@@ -1677,14 +1718,14 @@ func_examine_disk:
 	mov [Sides], dx
 
 .same_disk:
-	dec byte [gs:internal_call]
+	dec word [gs:internal_call]
 	popa
 	pop es
 	clc
 	ret
 	
 .failed:
-	dec byte [gs:internal_call]
+	dec word [gs:internal_call]
 	popa
 	pop es
 	stc
@@ -1709,7 +1750,7 @@ func_read_dir_sub:
 	push di
 	push cx
 	
-	inc byte [internal_call]
+	inc word [gs:internal_call]
 	
 	mov ax, DISK_SEGMENT
 	mov es, ax
@@ -1775,7 +1816,7 @@ func_read_dir_sub:
 	dec word [directory.remaining]		; Increase entry
 	add word [directory.pointer], 32
 	
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	
 	pop cx
 	pop di
@@ -1809,7 +1850,7 @@ func_read_dir_sub:
 	jmp .check_attributes
 	
 .no_entries_left:
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	
 	pop cx
 	pop di
@@ -2277,7 +2318,7 @@ func_swap_directories:
 ; OUT: none
 
 func_copy_string_f2g:
-	cmp byte [internal_call], 1
+	cmp word [gs:internal_call], 1
 	jg .local_copy
 	
 	pusha
@@ -2310,7 +2351,7 @@ func_copy_string_f2g:
 ; IN: GS:SI = source, FS:DI = destination filename
 
 func_copy_string_g2f:
-	cmp byte [internal_call], 1
+	cmp word [gs:internal_call], 1
 	jg .local_copy
 
 	pusha
@@ -2413,7 +2454,7 @@ func_write_bpb:
 
 func_find_file:
 	push si
-	inc byte [internal_call]
+	inc word [gs:internal_call]
 	
 	push ax
 	mov ax, di
@@ -2430,13 +2471,13 @@ func_find_file:
 	jmp .search
 	
 .not_found:
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	pop si
 	stc
 	ret
 	
 .found_file:
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	pop si
 	clc
 	ret
@@ -2453,7 +2494,7 @@ func_find_file:
 
 func_find_directory:
 	push si
-	inc byte [internal_call]
+	inc word [gs:internal_call]
 	
 .search:
 	call func_read_dir_sub
@@ -2465,13 +2506,13 @@ func_find_directory:
 	jmp .search
 	
 .not_found:
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	pop si
 	stc
 	ret
 	
 .found_sub:
-	dec byte [internal_call]
+	dec word [gs:internal_call]
 	pop si
 	clc
 	ret

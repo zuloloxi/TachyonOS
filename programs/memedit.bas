@@ -1,10 +1,10 @@
-rem Memory Manipulator (MEMEDIT.BAS), version 3.1.1
+rem Memory Manipulator (MEMEDIT.BAS), version 3.2.0
 rem An advanced memory modification tool for MikeOS
-rem Copyright (C) Joshua Beck
-rem Email: mikeosdeveloper@gmail.com
+rem Copyright (C) Joshua Beck, 2015
+rem Email: zerokelvinkeyboard@gmail.com
 rem Licenced under the GNU General Public Licence v3, see LICENCE
 
-rem Requires the MB++ library, version 3.2.3 recommended
+rem Requires the MB++ library, version 4.0.0 minimum
 include "mbpp.bas"
 
 parameters:
@@ -26,7 +26,7 @@ parameters:
 init:
   gosub startprg
   z = 9
-  $T = "Memory Manipulator"
+  $5 = "Memory Manipulator"
   gosub settitle
   cls
   cursor off
@@ -34,7 +34,6 @@ init:
   h = 9
   t = 1
   z = 1
-  gosub anistart
   gosub refresh
   
   a = 5
@@ -47,12 +46,12 @@ init:
   v = 0 - x
   x = x - y
 
-  $T = "              About"
-  $5 = "Memory Manipulator, version 3.1.1"
-  $6 = "Copyright (C) Joshua Beck 2012"
-  $7 = "Licenced under the GNU GPLv3"
-  $8 = "Program Memory: " + x + " bytes"
-  $9 = "Avaliable Memory: " + v + " bytes"
+  $5 = "              About"
+       $6 = "Memory Manipulator, version 3.2.0|"
+  $6 = $6 + "Copyright (C) Joshua Beck 2015|"
+  $6 = $6 + "Licenced under the GNU GPLv3|\7"
+       $7 = "Program Memory: " + x + " bytes|"
+  $7 = $7 + "Avaliable Memory: " + v + " bytes"
   gosub mesbox
 goto main
 
@@ -175,12 +174,11 @@ return
 
 go_location:
   t = 2
-  $T = "Goto - Location"
-  $5 = "Enter a hexdecimal memory address to"
-  $6 = "go to between 0000 and FFFF."
+  $5 = "Goto - Location"
+  $6 = "Enter a hexdecimal memory address to|go to between 0000 and FFFF."
   v = 1
   gosub inpbox
-  $4 = $I
+  $4 = $6
   
   if $4 = "" then return
   gosub highlight_off
@@ -243,16 +241,15 @@ return
   
 load_file:
   t = 14
-  $T = "Load"
-  $5 = "Enter a filename to load at the"
-  $6 = "selected location (blank to cancel)"
+  $5 = "Load"
+  $6 = "Enter a filename to load at the|selected location (blank to cancel)"
   v = 1
   gosub inpbox
-  $4 = $I
+  $4 = $6
   if $4 = "" then return
   
   load $4 d
-  if r = 1 then $E = "File does not exist!"
+  if r = 1 then $8 = "File does not exist!"
   if r = 1 then goto errbox
 
   gosub highlight_off
@@ -262,19 +259,19 @@ return
 
 save_file:
   t = 13
-  $T = "Save"
-  $5 = "What filename do you want to use?"
-  $6 = "How many bytes to save (hex)?"
+  $5 = "Save"
+  $6 = "What filename do you want to use?"
+  $7 = "How many bytes to save (hex)?"
   v = 1
   gosub dinbox
   
-  if $8 = "" then return
-  $4 = $8
+  if $7 = "" then return
+  $4 = $7
   gosub hexstr_to_num
-  delete $7
-  save $7 d v
+  delete $6
+  save $6 d v
   
-  if r = 1 then $E = "Read-only disk!"
+  if r = 1 then $8 = "Read-only disk!"
   if r = 1 then goto errbox
 return
 
